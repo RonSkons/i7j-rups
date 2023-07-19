@@ -21,9 +21,6 @@ jobs:
 
       - name: Install WINE
         run: sudo apt-get install wine -y
-        
-      - name: Set up Xvfb
-        run: Xvfb :0 -screen 0 1024x768x16 &
       
       - name: Set DISPLAY envar
         run: export DISPLAY=:0.0
