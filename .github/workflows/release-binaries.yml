@@ -57,8 +57,7 @@ jobs:
         run: ./release/warp-packer --arch windows-x64 --input_dir release/bundle_win --exec run.bat --output "iText RUPS.exe";
           
       - name: Set Release version env variable
-        run: |
-          echo "RELEASE_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_ENV
+        run: echo "RELEASE_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_ENV
       
       - name: Update .exe properties
         run: wine release/rcedit-x64.exe "iText RUPS.exe" --set-version-string "LegalCopyright" "Copyright (c) 1998-2023 Apryse Group NV" 
