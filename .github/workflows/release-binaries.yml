@@ -47,11 +47,14 @@ jobs:
           cp -r release/rups_app_shell.app "iText RUPS.app";
           mkdir "iText RUPS.app/Contents/MacOS";
           cp "RupsLauncher" "iText RUPS.app/Contents/MacOS/RupsLauncher";
+          zip -r "iText RUPS (Mac).zip" "iText RUPS.app";
+          rm -rf "iText RUPS.app";
           rm RupsLauncher;
 
       - name: Creat Linux .bin
         run: ./release/warp-packer --arch linux-x64 --input_dir release/bundle_linux --exec run.sh --output "iText RUPS.bin";
-          chmod +x "iText RUPS.bin";
+          zip -r "iText RUPS (Linux).zip" "iText RUPS.bin";
+          rm "iText RUPS.bin";
 
       - name: Creat Windows .exe
         run: ./release/warp-packer --arch windows-x64 --input_dir release/bundle_win --exec run.bat --output "iText RUPS.exe";
@@ -64,10 +67,14 @@ jobs:
         run: wine release/rcedit-x64.exe "iText RUPS.exe" --set-version-string "LegalCopyright" "Copyright (c) 1998-2023 Apryse Group NV" 
           --set-icon "release/application.ico" --set-version-string "FileVersion" $RELEASE_VERSION --set-version-string "CompanyName" "Apryse Group NV"
           --set-version-string "ProductName" "iText RUPS" --set-version-string "ProductVersion" $RELEASE_VERSION --set-file-version "0.0"
+      
+      - name: Compress .exe
+        run: zip -r "iText RUPS (Windows).zip" "iText RUPS.exe";
+          rm "iText RUPS.exe";
           
       - name: Publish release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.RELEASE_VERSION }}
           name: Release ${{ env.RELEASE_VERSION }}
-          files: "iText RUPS.*"
+          files: "*.zip"
