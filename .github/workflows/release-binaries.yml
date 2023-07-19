@@ -23,8 +23,8 @@ jobs:
         run: sudo apt-get install wine -y
         
       - name: Set up Xvfb
-        run: Xvfb :0 -screen 0 1024x768x16 &
-      - run: export DISPLAY=:0.0
+        run: Xvfb :0 -screen 0 1024x768x16 &;
+          export DISPLAY=:0.0
 
       - name: Build with Maven
         run: xvfb-run -a mvn -B package --file pom.xml
@@ -34,7 +34,7 @@ jobs:
           chmod +x release/warp-packer;
           
       - name: Set up Warp bundles
-          jarfile="$(ls target/itext-rups-*SNAPSHOT.jar)";
+        run: jarfile="$(ls target/itext-rups-*SNAPSHOT.jar)";
           cp $jarfile release/bundle_mac/app.jar;
           cp $jarfile release/bundle_linux/app.jar;
           cp $jarfile release/bundle_win/app.jar;
