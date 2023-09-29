@@ -83,6 +83,7 @@ public class Rups {
     }
 
     static void setLookandFeel() {
+        System.setProperty("apple.laf.useScreenMenuBar", "true"); // move menu bar to the top on macOS
         try {
             UIManager.setLookAndFeel(RupsConfiguration.INSTANCE.getLookAndFeel());
         } catch (

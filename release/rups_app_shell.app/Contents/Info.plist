@@ -18,11 +18,6 @@
         <string>APPL</string>
         <key>JVMMainClassName</key>
         <string>com.itextpdf.rups.RupsLauncher</string>
-        <key>JVMOptions</key>
-        <array>
-            <string>-Dapple.laf.useScreenMenuBar=true</string>
-            <string>-Xdock:name=itext-rups</string>
-        </array>
         <key>NSHighResolutionCapable</key>
         <true/>
         <key>NSSupportsAutomaticGraphicsSwitching</key>
