@@ -56,28 +56,24 @@ import com.itextpdf.kernel.pdf.xobject.PdfImageXObject;
 import com.itextpdf.rups.model.LoggerHelper;
 import com.itextpdf.rups.view.Language;
 
-import java.util.Set;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.util.ArrayList;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.DefaultStyledDocument;
 import javax.swing.text.MutableAttributeSet;
 import javax.swing.text.SimpleAttributeSet;
-import java.awt.image.BufferedImage;
-import java.io.IOException;
-import java.util.ArrayList;
 
 
 /**
  * Swing document representation of a PDF content stream.
  */
 public class StyledSyntaxDocument extends DefaultStyledDocument implements IMixedContentInterface {
-
+    private static final String INDENTATION_PREFIX = "    ";
     private static final int INLINE_IMAGE_EXPECTED_TOKEN_COUNT = 2;
 
-    private static final String INDENTATION_PREFIX = "    ";
-    private static final Set<String> INDENTING_OPERATORS = Set.of("BT", "q", "BMC", "BDC", "BX", "m", "re");
-    private static final Set<String> UNINDENTING_OPERATORS = Set.of("ET", "Q", "EMC", "EX", "b", "B", "f", "f*", "F",
-            "B*", "b*", "n", "s", "S");
+    private final transient IndentManager indentManager;
 
     /**
      * Highlight operands according to their operator.
@@ -88,7 +84,7 @@ public class StyledSyntaxDocument extends DefaultStyledDocument implements IMixe
      * Create an empty styled syntax document.
      */
     public StyledSyntaxDocument() {
-        // nothing to initialise
+        indentManager = new IndentManager();
     }
 
     /**
@@ -115,10 +111,11 @@ public class StyledSyntaxDocument extends DefaultStyledDocument implements IMixe
      * encodings and inline images.
      *
      * @param pos the position in the textual representation of the document to check
+     *
      * @return {@code false} if binary stream content, {@code true} otherwise
      */
     public boolean isTextual(int pos) {
-        AttributeSet attributes = getCharacterElement(pos).getAttributes();
+        final AttributeSet attributes = getCharacterElement(pos).getAttributes();
         return attributes.getAttribute(ContentStreamStyleConstants.BINARY_CONTENT) == null
                 || attributes.getAttribute(ContentStreamStyleConstants.INDENT) != null;
     }
@@ -134,12 +131,11 @@ public class StyledSyntaxDocument extends DefaultStyledDocument implements IMixe
      * with parentheses.
      *
      * @param pos the position in the textual representation of the document to check
+     *
      * @return {@code false} if hex-editable stream content, {@code true} otherwise
      */
     public boolean isHexEditable(int pos) {
-        return getCharacterElement(pos)
-                .getAttributes()
-                .getAttribute(ContentStreamStyleConstants.HEX_EDIT) != null;
+        return getCharacterElement(pos).getAttributes().getAttribute(ContentStreamStyleConstants.HEX_EDIT) != null;
     }
 
     /**
@@ -150,20 +146,14 @@ public class StyledSyntaxDocument extends DefaultStyledDocument implements IMixe
     public void processContentStream(byte[] streamContent) {
         setSmartEditLock(false);
         final ArrayList<PdfObject> tokens = new ArrayList<>();
-
         final PdfCanvasParser ps = ContentStreamHandlingUtils.createCanvasParserFor(streamContent);
-        int indentLevel = 0;
+        indentManager.reset();
         try {
             while (!ps.parse(tokens).isEmpty()) {
-                String operator = (tokens.get(tokens.size() - 1)).toString();
-                if (indentLevel > 0 && UNINDENTING_OPERATORS.contains(operator)) {
-                    // Do not let indentation become negative
-                    indentLevel--;
-                }
-                appendGraphicsOperator(tokens, indentLevel);
-                if (INDENTING_OPERATORS.contains(operator)) {
-                    indentLevel++;
-                }
+                final PdfObject operator = tokens.get(tokens.size() - 1);
+                indentManager.unindentIfNecessary(operator);
+                appendGraphicsOperator(tokens);
+                indentManager.indentIfNecessary(operator);
             }
         } catch (IOException | BadLocationException e) {
             throw new ITextException(Language.ERROR_BUILDING_CONTENT_STREAM.getString(), e);
@@ -175,6 +165,7 @@ public class StyledSyntaxDocument extends DefaultStyledDocument implements IMixe
      * Get the tooltip text (if any) at the given position in the document.
      *
      * @param pos the position for which to fetch the tooltip text
+     *
      * @return a string, or {@code null} if there is no tooltip.
      */
     public String getToolTipAt(int pos) {
@@ -213,38 +204,25 @@ public class StyledSyntaxDocument extends DefaultStyledDocument implements IMixe
     }
 
     /**
-     * Append graphics operators to the document. A graphics operator is specified as a list of
-     * {@link PdfObject}s, where the last element of the list is the operator literal,
-     * and the preceding elements represent the operands.
-     *
-     * @param tokens the representation of the graphics operator with its operands
-     * @throws BadLocationException if an error occurs while modifying the document
-     */
-    protected  void appendGraphicsOperator(java.util.List<PdfObject> tokens) throws BadLocationException {
-        appendGraphicsOperator(tokens, 0);
-    }
-
-    /**
-     * Append graphics operators to the document, indenting by specified amount.
+     * Append graphics operators to the document, indenting when appropriate.
      * A graphics operator is specified as a list of {@link PdfObject}s,
      * where the last element of the list is the operator literal,
      * and the preceding elements represent the operands.
      *
      * @param tokens the representation of the graphics operator with its operands
-     * @param indentLevel the number of levels to indent the operator by when displaying
+     *
      * @throws BadLocationException if an error occurs while modifying the document
      */
-    protected void appendGraphicsOperator(java.util.List<PdfObject> tokens, int indentLevel) throws BadLocationException {
+    protected void appendGraphicsOperator(java.util.List<PdfObject> tokens) throws BadLocationException {
         // operator is at the end
         final String operator = (tokens.get(tokens.size() - 1)).toString();
         // Inline images are parsed as stream + EI
-        if ("EI".equals(operator)
-                && tokens.size() == INLINE_IMAGE_EXPECTED_TOKEN_COUNT
-                && tokens.get(0) instanceof PdfStream) {
-            appendInlineImage((PdfStream) tokens.get(0), indentLevel);
+        if ("EI".equals(operator) && tokens.size() == INLINE_IMAGE_EXPECTED_TOKEN_COUNT && tokens.get(
+                0) instanceof PdfStream) {
+            appendInlineImage((PdfStream) tokens.get(0));
             return;
         }
-        appendDisplayOnlyIndent(indentLevel);
+        appendDisplayOnlyIndent(indentManager.getIndentLevel());
         final AttributeSet attributes = getStyleAttributes(operator);
         for (int i = 0; i < tokens.size() - 1; i++) {
             appendPdfObject(tokens.get(i), matchingOperands ? attributes : null);
@@ -256,6 +234,7 @@ public class StyledSyntaxDocument extends DefaultStyledDocument implements IMixe
      * Get the styling attributes for a given operator.
      *
      * @param operator the PDF graphics operator to get the attributes for
+     *
      * @return {@link AttributeSet} containing the attributes
      */
     protected AttributeSet getStyleAttributes(String operator) {
@@ -263,13 +242,12 @@ public class StyledSyntaxDocument extends DefaultStyledDocument implements IMixe
     }
 
     /**
-     * Append an inline image to the content stream document, indenting relative to
-     * the provided indent level.
+     * Append an inline image to the content stream document, indenting when appropriate.
      *
      * @param stm the {@link PdfStream} containing the image data
-     * @param indentLevel the base indentation level to use when displaying
      */
-    protected void appendInlineImage(final PdfStream stm, int indentLevel) throws BadLocationException {
+    protected void appendInlineImage(final PdfStream stm) throws BadLocationException {
+        final int indentLevel = indentManager.getIndentLevel();
         appendDisplayOnlyIndent(indentLevel);
         appendText("BI\n", getStyleAttributes("BI"));
 
@@ -407,15 +385,15 @@ public class StyledSyntaxDocument extends DefaultStyledDocument implements IMixe
     }
 
     private void appendDisplayOnlyIndent(int indentLevel) throws BadLocationException {
-        insertString(getLength(), INDENTATION_PREFIX.repeat(indentLevel),
-                ContentStreamStyleConstants.INDENT_ATTRS);
+        insertString(getLength(), INDENTATION_PREFIX.repeat(indentLevel), ContentStreamStyleConstants.INDENT_ATTRS);
     }
 
     private void appendDisplayOnlyNewline() throws BadLocationException {
         insertString(getLength(), "\n", ContentStreamStyleConstants.DISPLAY_ONLY_ATTRS);
     }
 
-    private void insertAndRenderInlineImage(final BufferedImage img, byte[] rawBytes, int indentLevel) throws BadLocationException {
+    private void insertAndRenderInlineImage(final BufferedImage img, byte[] rawBytes, int indentLevel)
+            throws BadLocationException {
         // add the image
         final AttributeSet imageAttrs = ContentStreamStyleConstants.getImageAttributes(img, rawBytes);
         appendDisplayOnlyIndent(indentLevel);

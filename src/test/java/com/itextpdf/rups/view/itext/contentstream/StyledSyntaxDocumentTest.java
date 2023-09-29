@@ -59,6 +59,8 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.regex.Pattern;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 @Tag("UnitTest")
 public class StyledSyntaxDocumentTest {
@@ -612,63 +614,23 @@ public class StyledSyntaxDocumentTest {
         Assertions.assertNull(doc.getToolTipAt(start));
     }
 
-    @Test
-    public void testIndentBaseline() throws Exception {
-        byte[] origBytes = Files.readAllBytes(Paths.get(SRC_DIR, "baseline.cmp"));
+    @ParameterizedTest
+    @CsvSource({
+            "baseline.cmp, baselineIndented.cmp",
+            "nested.cmp, nestedIndented.cmp",
+            "charprocWithInlineImg.cmp, charprocWithInlineImgIndented.cmp",
+            "charprocWithCorruptInlineImg.cmp, charprocWithCorruptInlineImgIndented.cmp",
+            "paths.cmp, pathsIndented.cmp",
+            "nestedPaths.cmp, nestedPathsIndented.cmp",
+            "nestedPathsEmbedded.cmp, nestedPathsEmbeddedIndented.cmp",
+    })
+    void testIndentation(String inputFile, String expectedOutputFile) throws Exception {
+        byte[] origBytes = Files.readAllBytes(Paths.get(SRC_DIR, inputFile));
         StyledSyntaxDocument doc = new StyledSyntaxDocument();
         doc.processContentStream(origBytes);
 
         String output = doc.getText(0, doc.getLength());
-        String expectedResult = new String(Files.readAllBytes(Paths.get(SRC_DIR, "baselineIndented.cmp")),
-                StandardCharsets.ISO_8859_1);
-        Assertions.assertEquals(expectedResult, output);
-    }
-
-    @Test
-    public void testIndentNested() throws Exception {
-        byte[] origBytes = Files.readAllBytes(Paths.get(SRC_DIR, "nested.cmp"));
-        StyledSyntaxDocument doc = new StyledSyntaxDocument();
-        doc.processContentStream(origBytes);
-
-        String output = doc.getText(0, doc.getLength());
-        String expectedResult = new String(Files.readAllBytes(Paths.get(SRC_DIR, "nestedIndented.cmp")),
-                StandardCharsets.ISO_8859_1);
-        Assertions.assertEquals(expectedResult, output);
-    }
-
-    @Test
-    public void testIndentInlineImage() throws Exception {
-        byte[] origBytes = Files.readAllBytes(Paths.get(SRC_DIR, "charprocWithInlineImg.cmp"));
-        StyledSyntaxDocument doc = new StyledSyntaxDocument();
-        doc.processContentStream(origBytes);
-
-        String output = doc.getText(0, doc.getLength());
-        String expectedResult = new String(Files.readAllBytes(Paths.get(SRC_DIR, "charprocWithInlineImgIndented.cmp")),
-                StandardCharsets.ISO_8859_1);
-        Assertions.assertEquals(expectedResult, output);
-    }
-
-    @Test
-    public void testIndentCorruptInlineImage() throws Exception {
-        byte[] origBytes = Files.readAllBytes(Paths.get(SRC_DIR, "charprocWithCorruptInlineImg.cmp"));
-        StyledSyntaxDocument doc = new StyledSyntaxDocument();
-        doc.processContentStream(origBytes);
-
-        String output = doc.getText(0, doc.getLength());
-        String expectedResult = new String(Files.readAllBytes(Paths.get(SRC_DIR, "charprocWithCorruptInlineImgIndented.cmp")),
-                StandardCharsets.ISO_8859_1);
-        Assertions.assertEquals(expectedResult, output);
-    }
-
-    @Test
-    public void testIndentPathOperators() throws Exception {
-        byte[] origBytes = Files.readAllBytes(Paths.get(SRC_DIR, "paths.cmp"));
-        StyledSyntaxDocument doc = new StyledSyntaxDocument();
-        doc.processContentStream(origBytes);
-
-        String output = doc.getText(0, doc.getLength());
-        String expectedResult = new String(Files.readAllBytes(Paths.get(SRC_DIR, "pathsIndented.cmp")),
-                StandardCharsets.ISO_8859_1);
+        String expectedResult = Files.readString(Paths.get(SRC_DIR, expectedOutputFile), StandardCharsets.ISO_8859_1);
         Assertions.assertEquals(expectedResult, output);
     }
 }
