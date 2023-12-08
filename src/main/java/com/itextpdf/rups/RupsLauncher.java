@@ -65,6 +65,10 @@ public class RupsLauncher {
         } else {
             f = null;
         }
+        if (System.getProperty("java.home") == null) {
+            // Workaround for native-image and AWT
+            System.setProperty("java.home", "");
+        }
         Rups.startNewApplication(f);
     }
 }

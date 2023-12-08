@@ -153,6 +153,7 @@
         <configuration>
           <skipTests>false</skipTests>
           <argLine>@{jacoco.agent.argLine}</argLine>
+          <argLine>-agentlib:native-image-agent=config-output-dir=target/classes/META-INF/native-image</argLine>
         </configuration>
       </plugin>
       <plugin>
